@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSI - Interaction 1</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      background-color: #131313;
+      font-size: 14px;
+    }
+
+    table {
+      border-spacing: 0;
+    }
+
+    td {
+      padding: 0px 0px 20px 0px;
+      border: 0;
+    }
+
+    img {
+      border: 0;
+    }
+
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background: #131313;
+      padding: 60px 0px;
+    }
+
+    .main {
+      background-color: #131313;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 700px;
+      border-spacing: 0;
+      font-family: sans-serif;
+      color: #ffffff;
+      border-radius: 1.5rem;
+      padding: 50px;
+      font-size: 1.1rem;
+      position: relative;
+      border: 2px solid #797979;
+    }
+
+    .rows>td {
+      padding: 4px 0px;
+      font-size: 0.95rem;
+    }
+
+    .fire {
+      position: relative;
+      top: 10px;
+      left: 0px;
+    }
+
+    .icons {
+      display: none;
+    }
+
+    .heading {
+      padding-left: -30px;
+    }
+
+    .icon {
+      width: 96%;
+      max-width: 600px;
+    }
+
+    li {
+      list-style-type: disc;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .pointers li {
+      list-style-type: decimal;
+      margin-bottom: 10px;
+    }
+
+    b {
+      font-size: 16px;
+    }
+
+    span {
+      color: #f5a20a;
+    }
+
+    .highlight {
+      color: #f5a20a;
+      font-weight: bold;
+    }
+
+    .section-header {
+      color: #f5a20a;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #f5a20a 0%, #ff6b35 100%);
+      color: #131313;
+      padding: 14px 28px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 1.1rem;
+      transition: transform 0.2s ease;
+    }
+
+    .cta-button:hover {
+      transform: scale(1.05);
+    }
+
+    .discord-link {
+      display: inline-block;
+      background-color: #5865F2;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin: 5px;
+    }
+
+    .whatsapp-link {
+      display: inline-block;
+      background-color: #25D366;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin: 5px;
+    }
+
+    .contact-box {
+      background-color: #1a1a1a;
+      border-radius: 10px;
+      padding: 15px 20px;
+      border-left: 4px solid #f5a20a;
+    }
+
+    .contact-name {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .contact-number {
+      color: rgb(69, 167, 254);
+      text-decoration: none;
+    }
+
+    .intro-text {
+      line-height: 1.7;
+    }
+
+    @media only screen and (max-width: 660px) {
+      .wrapper {
+        padding-block: 20px;
+      }
+
+      .main {
+        font-size: 0.9rem;
+        padding: 25px;
+        border-radius: 1rem;
+      }
+
+      .rows>td {
+        font-size: 0.8rem;
+        padding: 3px 0px;
+      }
+
+      .fire {
+        display: none;
+      }
+
+      .banner-ico>img {
+        width: 50px;
+      }
+
+      .floaters {
+        display: none;
+      }
+
+      .floaters-container {
+        display: none;
+      }
+
+      .section-header {
+        font-size: 1.1rem;
+      }
+
+      .cta-button {
+        padding: 12px 20px;
+        font-size: 1rem;
+      }
+
+      .discord-link, .whatsapp-link {
+        padding: 10px 18px;
+        font-size: 0.9rem;
+        display: block;
+        margin: 8px 0;
+      }
+
+      .contact-box {
+        padding: 12px 15px;
+      }
+
+      td {
+        padding: 0px 0px 15px 0px;
+      }
+
+      li {
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+      }
+    }
+
+    @media only screen and (max-width: 400px) {
+      .main {
+        padding: 20px;
+        font-size: 0.85rem;
+      }
+
+      .section-header {
+        font-size: 1rem;
+      }
+
+      .cta-button {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <center class="wrapper">
+    <div class="icon floaters-container" style="text-align: right;">
+      <img src="https://i.ibb.co/7b8N3bN/Group-5.png" alt="" width="75" />
+    </div>
+    <table>
+      <tr>
+        <td style="height:100%" class="floaters-container">
+          <table style="height:100%">
+            <tr style="height:150px">
+              <td>
+                <img src="https://i.ibb.co/DDBL66W/floater1.png" alt="" width="150" style="z-index: 100; display: block;" class="floaters">
+              </td>
+            </tr>
+            <tr style="height:850px">
+              <td>
+                <img src="https://i.ibb.co/c1cGzP5/floater4.png" alt="" width="150" style=" z-index: 100;" class="floaters">
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td style="padding: 20px;"> 
+          <table class="main" padding="2" width="100%" border="2" borderColor="#797979" style="position: relative">
+            <tr>
+              <td style="font-size: 1.5rem; font-weight: 600; text-align: center; position: relative;">
+                <span class="highlight">DEADLINE EXTENDED </span>FOR CSI's INTERACTION 1!
+              </td>
+            </tr>
+            <tr>
+              <td class="intro-text">
+                We heard you! After receiving numerous requests from eager participants, we are thrilled to announce that the deadline for Interaction 1 has been extended to 24 December 11:59PM.
+              </td>
+            </tr>
+            
+            <!-- What is Interaction 1 Section -->
+            <tr>
+              <td>
+                <div class="section-header">📌 What is Interaction 1?</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                An engaging challenge crafted to test your skills and curiosity, with no prerequisites.
+              </td>
+            </tr>
+            
+            <!-- Date Section -->
+            <tr>
+              <td style="padding-top: 15px;">
+                <strong>New Deadline:</strong> 24th December 2025 11:59PM
+              </td>
+            </tr>
+            
+            <!-- Guidelines Section -->
+            <tr>
+              <td>
+                <div class="section-header">📋 Guidelines</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                  <li>No further extensions will be granted.</li>
+                  <li>You can register for <strong>up to two domains</strong>.</li>
+                  <li>Attempt <strong>at least one domain</strong>.</li>
+                  <li>You cannot attempt any other domains once you've unlocked 2 domains — <span class="highlight">choose wisely!</span></li>
+                </ul>
+              </td>
+            </tr>
+            
+            <!-- Link Section -->
+            <tr>
+              <td style="text-align: center; padding: 25px 0;">
+                <div style="margin-bottom: 15px; font-size: 1.1rem;">🔗 <strong>Link to Interaction 1:</strong></div>
+                <a href="https://interact.csivit.com" class="cta-button">Start Interaction 1 →</a>
+              </td>
+            </tr>
+            
+            <!-- Community Links Section -->
+            <tr>
+              <td>
+                <div class="section-header">💬 Join Our Community</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Stay connected and updated with us!
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>WhatsApp Community:</strong> <a href="https://chat.whatsapp.com/K4aeHfQeFlc5HC01B5nVG1?mode=wwt" style="color: #25D366; text-decoration: none; font-weight: 600;">Join WhatsApp</a><br><br>
+                <strong>Discord Server:</strong> <a href="https://discord.gg/AxHrjfbfbZ" style="color: #5865F2; text-decoration: none; font-weight: 600;">Join Discord</a>
+              </td>
+            </tr>
+            
+            <!-- Contact Section -->
+            <tr>
+              <td>
+                <div class="section-header">📩 For Any Doubts, Contact:</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="contact-box">
+                  <table width="100%" style="border-spacing: 0;">
+                    <tr class="rows">
+                      <td style="padding: 8px 0;">
+                        <span class="contact-name">Saumya Shekar:</span>
+                        <a href="tel:+919205195479" class="contact-number"> 9205195479</a>
+                      </td>
+                    </tr>
+                    <tr class="rows">
+                      <td style="padding: 8px 0;">
+                        <span class="contact-name">Snigdha Priya:</span>
+                        <a href="tel:+919771116058" class="contact-number"> 9771116058</a>
+                      </td>
+                    </tr>
+                    <tr class="rows">
+                      <td style="padding: 8px 0;">
+                        <span class="contact-name">Lakshya Gupta:</span>
+                        <a href="tel:+919818870848" class="contact-number"> 9818870848</a>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="padding-top: 25px; text-align: center;" class="section-header">Find the challenges interesting? Bring your friends along into our chaotic chapter too!</td>
+            </tr>
+            <tr style="text-align: center">
+              <td>
+                <a href="https://www.instagram.com/csivitu/"><img src="https://i.ibb.co/kS1PSFh/instagram.png" alt="" width="20" style="padding: 5px" /></a>
+                <a href="https://twitter.com/csivitu"><img src="https://i.ibb.co/3CnFxtP/twitter.png" alt="" width="20" style="padding: 5px" /></a>
+                <a href="https://www.linkedin.com/company/csivitu"><img src="https://i.ibb.co/fp0Vf3q/linkedin.png" alt="" width="20" style="padding: 5px" /></a>
+                <a href="https://www.facebook.com/csivitu"><img src="https://i.ibb.co/3CyMTKt/facebook.png" alt="" width="20" style="padding: 5px" /></a>
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td style="height:100%" class="floaters-container">
+          <table style="height:100%">
+            <tr style="height:600px">
+              <td>
+                <img src="https://i.ibb.co/LgnCbJ7/floater2.png" alt="" width="150" style="z-index: 100; display: block;" class="floaters">
+              </td>
+            </tr>
+            <tr style="height:400px">
+              <td>
+                <img src="https://i.ibb.co/kxL21s7/floater3.png" alt="" width="150" style=" z-index: 100;" class="floaters">
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </center>
+</body>
+
+</html>

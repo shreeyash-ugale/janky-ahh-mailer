@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "csv-stringify": "^6.6.0",
+    "mongoose": "^9.0.2"
+  }
+}
