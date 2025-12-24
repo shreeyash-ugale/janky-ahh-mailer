@@ -64,6 +64,41 @@ async function resetLimits() {
     }
 }
 
+async function updateAllMaxLimits() {
+    console.log('\n=== Update All Max Limits ===\n');
+    
+    const stats = await getAllAccountsStats();
+    
+    if (stats.length === 0) {
+        console.log('No accounts found.');
+        return;
+    }
+    
+    console.log(`Current accounts (${stats.length} total):\n`);
+    stats.forEach((stat, i) => {
+        console.log(`${i + 1}. ${stat.email} - Current max limit: ${stat.maxSendLimit}`);
+    });
+    
+    const newLimit = await question('\nEnter new max limit for all accounts: ');
+    const limit = parseInt(newLimit);
+    
+    if (isNaN(limit) || limit <= 0) {
+        console.log('Invalid limit. Please enter a positive number.');
+        return;
+    }
+    
+    const confirm = await question(`\nThis will update all ${stats.length} accounts to ${limit}. Continue? (yes/no): `);
+    
+    if (confirm.toLowerCase() === 'yes' || confirm.toLowerCase() === 'y') {
+        for (const stat of stats) {
+            await addOrUpdateAccount(stat.email, '', limit);
+        }
+        console.log(`\nAll ${stats.length} accounts updated to max limit: ${limit}`);
+    } else {
+        console.log('Cancelled.');
+    }
+}
+
 async function main() {
     await connectDB();
     
@@ -71,7 +106,8 @@ async function main() {
     console.log('1. Add email account');
     console.log('2. View all accounts');
     console.log('3. Reset all limits');
-    console.log('4. Exit\n');
+    console.log('4. Update all max limits');
+    console.log('5. Exit\n');
     
     const choice = await question('Choose an option: ');
     
@@ -86,6 +122,9 @@ async function main() {
             await resetLimits();
             break;
         case '4':
+            await updateAllMaxLimits();
+            break;
+        case '5':
             console.log('Goodbye!');
             rl.close();
             process.exit(0);
