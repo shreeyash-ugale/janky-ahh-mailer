@@ -20,7 +20,9 @@ const EMAIL_SETTINGS = {
     subject: 'Deadline Extended! Attempt CSI Interaction 1 Now!',
     templatePath: './interact_mail_csi.html',
     batchSize: 5,
-    delayBetweenBatches: 1000 // 1 second delay
+    delayBetweenBatches: 1000, // 1 second delay
+    minRotationCount: 80, // Minimum emails before rotating account
+    maxRotationCount: 120 // Maximum emails before rotating account
 };
 
 class EnhancedCSVMailer {
@@ -31,6 +33,9 @@ class EnhancedCSVMailer {
         this.recipients = [];
         this.csvFilePath = '';
         this.csvFileName = '';
+        this.sessionEmailCount = 0; // Emails sent with current account in this session
+        this.rotationThreshold = 0; // When to rotate to next account
+        this.usedAccountIds = new Set(); // Track which accounts we've used
     }
 
     // Create transporter for a specific account
@@ -47,26 +52,61 @@ class EnhancedCSVMailer {
         });
     }
 
-    // Get next available account
-    async getNextAccount() {
-        const account = await getAvailableAccount();
+    // Get next available account (prioritize unused accounts for fair distribution)
+    async getNextAccount(forceRotation = false) {
+        // Get all available accounts
+        const allAccounts = await EmailAccount.find({
+            status: 'active',
+            isRateLimited: false,
+            $expr: { $lt: ['$sentCount', '$maxSendLimit'] }
+        }).sort({ sentCount: 1 });
         
-        if (!account) {
+        if (allAccounts.length === 0) {
             console.log('\nNo available email accounts found!');
             console.log('All accounts are either rate-limited or have reached their sending limit.');
             return null;
         }
 
+        let account = null;
+
+        // Try to find an unused account first for fair distribution
+        const unusedAccounts = allAccounts.filter(acc => !this.usedAccountIds.has(acc._id.toString()));
+        
+        if (unusedAccounts.length > 0) {
+            // Pick the unused account with lowest sent count
+            account = unusedAccounts[0];
+            console.log(`\nSelecting unused account: ${account.email}`);
+        } else if (allAccounts.length > 1 && forceRotation) {
+            // All accounts used at least once, pick different from current if possible
+            const otherAccounts = allAccounts.filter(acc => 
+                !this.currentAccount || acc._id.toString() !== this.currentAccount._id.toString()
+            );
+            account = otherAccounts.length > 0 ? otherAccounts[0] : allAccounts[0];
+            console.log(`\nRotating to different account: ${account.email}`);
+        } else {
+            // Just pick the best available
+            account = allAccounts[0];
+        }
+
         // Close previous transporter if exists
         if (this.currentTransporter) {
             this.currentTransporter.close();
+            console.log('Connection pool closed for previous account');
         }
 
         this.currentAccount = account;
         this.currentTransporter = this.createTransporter(account);
+        this.usedAccountIds.add(account._id.toString());
+        
+        // Reset session counter and set new rotation threshold
+        this.sessionEmailCount = 0;
+        this.rotationThreshold = Math.floor(
+            Math.random() * (EMAIL_SETTINGS.maxRotationCount - EMAIL_SETTINGS.minRotationCount + 1)
+        ) + EMAIL_SETTINGS.minRotationCount;
 
-        console.log(`\nSwitched to account: ${account.email}`);
+        console.log(`Switched to account: ${account.email}`);
         console.log(`   Sent: ${account.sentCount}/${account.maxSendLimit}`);
+        console.log(`   Will rotate after ~${this.rotationThreshold} emails in this session`);
 
         return account;
     }
@@ -182,10 +222,10 @@ class EnhancedCSVMailer {
 
     // Send email to a single recipient
     async sendEmail(recipient) {
-        // Check if we need to switch accounts
+        // Check if account has hit its max limit (critical check)
         if (!this.currentAccount || 
             this.currentAccount.sentCount >= this.currentAccount.maxSendLimit) {
-            const newAccount = await this.getNextAccount();
+            const newAccount = await this.getNextAccount(true);
             if (!newAccount) {
                 return { success: false, error: 'No available accounts', needsSwitch: false };
             }
@@ -215,8 +255,9 @@ class EnhancedCSVMailer {
 
             console.log(`Sent to ${recipient.email} via ${this.currentAccount.email}`);
             
-            // Update local account sent count
+            // Update local account sent count and session count
             this.currentAccount.sentCount++;
+            this.sessionEmailCount++;
             
             return { success: true, messageId: info.messageId };
             
@@ -329,8 +370,19 @@ class EnhancedCSVMailer {
             await this.updateCSV();
             console.log(`Batch ${batchIndex + 1} complete: ${batchResults.filter(r => r.success).length}/${batch.length} sent`);
             
-            // Delay between batches (except after the last batch)
+            // Check if we should rotate account for fair distribution (only between batches)
             if (batchIndex < totalBatches - 1) {
+                if (this.sessionEmailCount >= this.rotationThreshold) {
+                    console.log(`\n🔄 Rotation threshold (${this.rotationThreshold}) reached. Switching to next account for fair distribution...`);
+                    const newAccount = await this.getNextAccount(true);
+                    if (!newAccount) {
+                        console.log('⚠️  No other accounts available, continuing with current account');
+                    } else {
+                        console.log('✓ Account rotated successfully');
+                    }
+                }
+                
+                // Delay between batches
                 console.log(`Waiting ${EMAIL_SETTINGS.delayBetweenBatches}ms before next batch...`);
                 await new Promise(resolve => setTimeout(resolve, EMAIL_SETTINGS.delayBetweenBatches));
             }
