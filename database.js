@@ -142,16 +142,35 @@ export async function logSentEmail(fromAccount, toEmail, subject, status, messag
 }
 
 export async function addOrUpdateAccount(email, appPassword, maxSendLimit = 500) {
+    const updateData = { 
+        email: email.toLowerCase(),
+        maxSendLimit,
+        status: 'active',
+        isRateLimited: false
+    };
+    
+    // Only update password if it's provided and not empty
+    if (appPassword && appPassword.trim() !== '') {
+        updateData.appPassword = appPassword;
+    }
+    
+    const account = await EmailAccount.findOneAndUpdate(
+        { email: email.toLowerCase() },
+        updateData,
+        { upsert: true, new: true }
+    );
+    return account;
+}
+
+export async function updateAccountMaxLimit(email, maxSendLimit) {
     const account = await EmailAccount.findOneAndUpdate(
         { email: email.toLowerCase() },
         { 
-            email: email.toLowerCase(),
-            appPassword,
             maxSendLimit,
             status: 'active',
             isRateLimited: false
         },
-        { upsert: true, new: true }
+        { new: true }
     );
     return account;
 }
@@ -183,6 +202,16 @@ export async function getAllAccountsStats() {
         accounts.map(account => getAccountStats(account.email))
     );
     return stats;
+}
+
+export async function getAccountCredentials(email) {
+    const account = await EmailAccount.findOne({ email: email.toLowerCase() });
+    if (!account) return null;
+    
+    return {
+        email: account.email,
+        appPassword: account.appPassword
+    };
 }
 
 export async function resetAccountLimits() {

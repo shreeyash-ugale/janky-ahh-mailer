@@ -2,9 +2,12 @@ import {
     connectDB,
     addOrUpdateAccount,
     getAllAccountsStats,
-    resetAccountLimits
+    resetAccountLimits,
+    getAccountCredentials,
+    updateAccountMaxLimit
 } from './database.js';
 import readline from 'readline';
+import nodemailer from 'nodemailer';
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -91,12 +94,55 @@ async function updateAllMaxLimits() {
     
     if (confirm.toLowerCase() === 'yes' || confirm.toLowerCase() === 'y') {
         for (const stat of stats) {
-            await addOrUpdateAccount(stat.email, '', limit);
+            await updateAccountMaxLimit(stat.email, limit);
         }
         console.log(`\nAll ${stats.length} accounts updated to max limit: ${limit}`);
     } else {
         console.log('Cancelled.');
     }
+}
+
+async function testAllAccounts() {
+    console.log('\n=== Testing All App Passwords ===\n');
+    
+    const stats = await getAllAccountsStats();
+    
+    if (stats.length === 0) {
+        console.log('No accounts found.');
+        return;
+    }
+    
+    console.log(`Testing ${stats.length} account(s)...\n`);
+    
+    for (let i = 0; i < stats.length; i++) {
+        const stat = stats[i];
+        const accountData = await getAccountCredentials(stat.email);
+        
+        if (!accountData || !accountData.appPassword) {
+            console.log(`${i + 1}. ${stat.email}: ❌ Account credentials not found`);
+            continue;
+        }
+        
+        try {
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: accountData.email,
+                    pass: accountData.appPassword
+                }
+            });
+            
+            // Verify connection without sending email
+            await transporter.verify();
+            console.log(`${i + 1}. ${stat.email}: ✓ Valid`);
+            transporter.close();
+            
+        } catch (error) {
+            console.log(`${i + 1}. ${stat.email}: ❌ Invalid (${error.message})`);
+        }
+    }
+    
+    console.log('\nTesting complete!\n');
 }
 
 async function main() {
@@ -107,7 +153,8 @@ async function main() {
     console.log('2. View all accounts');
     console.log('3. Reset all limits');
     console.log('4. Update all max limits');
-    console.log('5. Exit\n');
+    console.log('5. Test all app passwords');
+    console.log('6. Exit\n');
     
     const choice = await question('Choose an option: ');
     
@@ -125,6 +172,9 @@ async function main() {
             await updateAllMaxLimits();
             break;
         case '5':
+            await testAllAccounts();
+            break;
+        case '6':
             console.log('Goodbye!');
             rl.close();
             process.exit(0);
