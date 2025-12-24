@@ -7,6 +7,7 @@ import {
     connectDB,
     EmailAccount,
     getAvailableAccount,
+    getAllAvailableAccounts,
     incrementSentCount,
     markAccountRateLimited,
     logSentEmail,
@@ -17,7 +18,7 @@ import {
 // Email settings
 const EMAIL_SETTINGS = {
     from: 'CSI Team <{email}>', // {email} will be replaced with current account email
-    subject: 'Deadline Extended! Attempt CSI Interaction 1 Now!',
+    subject: 'Last few hours left! Attempt CSI Interaction 1 Now!',
     templatePath: './interact_mail_csi.html',
     batchSize: 5,
     delayBetweenBatches: 1000, // 1 second delay
@@ -55,11 +56,7 @@ class EnhancedCSVMailer {
     // Get next available account (prioritize unused accounts for fair distribution)
     async getNextAccount(forceRotation = false) {
         // Get all available accounts
-        const allAccounts = await EmailAccount.find({
-            status: 'active',
-            isRateLimited: false,
-            $expr: { $lt: ['$sentCount', '$maxSendLimit'] }
-        }).sort({ sentCount: 1 });
+        const allAccounts = await getAllAvailableAccounts();
         
         if (allAccounts.length === 0) {
             console.log('\nNo available email accounts found!');

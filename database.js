@@ -96,6 +96,17 @@ export async function getAvailableAccount() {
     return account;
 }
 
+export async function getAllAvailableAccounts() {
+    // Get all accounts that are active, not rate limited, and under the limit
+    const accounts = await EmailAccount.find({
+        status: 'active',
+        isRateLimited: false,
+        $expr: { $lt: ['$sentCount', '$maxSendLimit'] }
+    }).sort({ sentCount: 1 }); // Sort by least emails sent
+
+    return accounts;
+}
+
 export async function incrementSentCount(email) {
     await EmailAccount.findOneAndUpdate(
         { email: email.toLowerCase() },
