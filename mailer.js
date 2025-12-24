@@ -21,7 +21,7 @@ const EMAIL_SETTINGS = {
     subject: 'Last few hours left! Attempt CSI Interaction 1 Now!',
     templatePath: './interact_mail_csi.html',
     batchSize: 5,
-    delayBetweenBatches: 1000, // 1 second delay
+    delayBetweenBatches: 500, // 1 second delay
     minRotationCount: 80, // Minimum emails before rotating account
     maxRotationCount: 120 // Maximum emails before rotating account
 };
@@ -219,9 +219,10 @@ class EnhancedCSVMailer {
 
     // Send email to a single recipient
     async sendEmail(recipient) {
-        // Check if account has hit its max limit (critical check)
+        // Check if account has hit its max limit (critical check) - BEFORE sending
         if (!this.currentAccount || 
             this.currentAccount.sentCount >= this.currentAccount.maxSendLimit) {
+            console.log(`\n⚠️  Account limit reached (${this.currentAccount?.sentCount}/${this.currentAccount?.maxSendLimit}). Switching account...`);
             const newAccount = await this.getNextAccount(true);
             if (!newAccount) {
                 return { success: false, error: 'No available accounts', needsSwitch: false };
@@ -238,7 +239,11 @@ class EnhancedCSVMailer {
 
             const info = await this.currentTransporter.sendMail(mailOptions);
             
-            // Log success
+            // Update local account sent count FIRST (before database)
+            this.currentAccount.sentCount++;
+            this.sessionEmailCount++;
+            
+            // Then log to database
             await incrementSentCount(this.currentAccount.email);
             await logSentEmail(
                 this.currentAccount.email,
@@ -250,11 +255,7 @@ class EnhancedCSVMailer {
                 this.csvFileName
             );
 
-            console.log(`Sent to ${recipient.email} via ${this.currentAccount.email}`);
-            
-            // Update local account sent count and session count
-            this.currentAccount.sentCount++;
-            this.sessionEmailCount++;
+            console.log(`Sent to ${recipient.email} via ${this.currentAccount.email} (${this.currentAccount.sentCount}/${this.currentAccount.maxSendLimit})`);
             
             return { success: true, messageId: info.messageId };
             
@@ -297,7 +298,7 @@ class EnhancedCSVMailer {
         
         if (unsentRecipients.length === 0) {
             console.log('\nAll emails have already been sent!');
-            return { sent: 0, failed: 0, skipped: this.recipients.length };
+            return { sent: 0, failed: 0, skipped: this.recipients.length, errors: [] };
         }
 
         console.log(`\nStarting to send ${unsentRecipients.length} emails in batches of ${EMAIL_SETTINGS.batchSize}...`);
