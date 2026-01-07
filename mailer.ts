@@ -1,8 +1,10 @@
 import nodemailer from 'nodemailer';
+import type { Transporter, SentMessageInfo } from 'nodemailer';
 import fs from 'fs';
 import { parse } from 'csv-parse';
 import { stringify } from 'csv-stringify';
 import readline from 'readline';
+import dotenv from 'dotenv';
 import {
     connectDB,
     EmailAccount,
@@ -13,34 +15,91 @@ import {
     logSentEmail,
     getAllAccountsStats,
     wasEmailSent
-} from './database.js';
+} from './database';
+
+// Load environment variables
+dotenv.config();
+
+// Validate required environment variables
+if (!process.env.EMAIL_SUBJECT) {
+    console.error('\nError: EMAIL_SUBJECT is not defined in .env file');
+    console.error('Please add EMAIL_SUBJECT to your .env file\n');
+    process.exit(1);
+}
+
+if (!process.env.EMAIL_TEMPLATE_PATH) {
+    console.error('\nError: EMAIL_TEMPLATE_PATH is not defined in .env file');
+    console.error('Please add EMAIL_TEMPLATE_PATH to your .env file\n');
+    process.exit(1);
+}
+
+// Check if template file exists
+if (!fs.existsSync(process.env.EMAIL_TEMPLATE_PATH)) {
+    console.error(`\nError: Email template file not found: ${process.env.EMAIL_TEMPLATE_PATH}`);
+    console.error('Please ensure the template file exists at the specified path\n');
+    process.exit(1);
+}
 
 // Email settings
-const EMAIL_SETTINGS = {
+interface EmailSettings {
+    from: string;
+    subject: string;
+    templatePath: string;
+    batchSize: number;
+    delayBetweenBatches: number;
+    minRotationCount: number;
+    maxRotationCount: number;
+}
+
+const EMAIL_SETTINGS: EmailSettings = {
     from: 'CSI Team <{email}>', // {email} will be replaced with current account email
-    subject: 'Last few hours left! Attempt CSI Interaction 1 Now!',
-    templatePath: './interact_mail_csi.html',
+    subject: process.env.EMAIL_SUBJECT,
+    templatePath: process.env.EMAIL_TEMPLATE_PATH,
     batchSize: 5,
     delayBetweenBatches: 500, // 1 second delay
     minRotationCount: 80, // Minimum emails before rotating account
     maxRotationCount: 120 // Maximum emails before rotating account
 };
 
+interface Recipient {
+    email: string;
+    sent: boolean;
+    originalRow: Record<string, string>;
+}
+
+interface SendEmailResult {
+    success: boolean;
+    error?: string;
+    messageId?: string;
+    needsSwitch?: boolean;
+}
+
+interface BulkEmailResults {
+    sent: number;
+    failed: number;
+    skipped: number;
+    errors: Array<{ recipient: string; error: string }>;
+}
+
+interface BatchResult {
+    success: boolean;
+    recipient: Recipient;
+    error?: string;
+}
+
 class EnhancedCSVMailer {
-    constructor() {
-        this.currentTransporter = null;
-        this.currentAccount = null;
-        this.emailTemplate = '';
-        this.recipients = [];
-        this.csvFilePath = '';
-        this.csvFileName = '';
-        this.sessionEmailCount = 0; // Emails sent with current account in this session
-        this.rotationThreshold = 0; // When to rotate to next account
-        this.usedAccountIds = new Set(); // Track which accounts we've used
-    }
+    private currentTransporter: Transporter | null = null;
+    private currentAccount: any = null;
+    private emailTemplate: string = '';
+    private recipients: Recipient[] = [];
+    private csvFilePath: string = '';
+    private csvFileName: string = '';
+    private sessionEmailCount: number = 0; // Emails sent with current account in this session
+    private rotationThreshold: number = 0; // When to rotate to next account
+    private usedAccountIds: Set<string> = new Set(); // Track which accounts we've used
 
     // Create transporter for a specific account
-    createTransporter(account) {
+    createTransporter(account: any): Transporter {
         return nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -54,7 +113,7 @@ class EnhancedCSVMailer {
     }
 
     // Get next available account (prioritize unused accounts for fair distribution)
-    async getNextAccount(forceRotation = false) {
+    async getNextAccount(forceRotation: boolean = false): Promise<any | null> {
         // Get all available accounts
         const allAccounts = await getAllAvailableAccounts();
         
@@ -64,7 +123,7 @@ class EnhancedCSVMailer {
             return null;
         }
 
-        let account = null;
+        let account: any = null;
 
         // Try to find an unused account first for fair distribution
         const unusedAccounts = allAccounts.filter(acc => !this.usedAccountIds.has(acc._id.toString()));
@@ -109,7 +168,7 @@ class EnhancedCSVMailer {
     }
 
     // Check if error indicates rate limiting
-    isRateLimitError(errorMessage) {
+    isRateLimitError(errorMessage: string): boolean {
         const rateLimitPatterns = [
             'Too many login attempts',
             'rate limit',
@@ -125,12 +184,12 @@ class EnhancedCSVMailer {
     }
 
     // Load CSV with existing sent status
-    async loadCSV(csvFilePath) {
+    async loadCSV(csvFilePath: string): Promise<Recipient[]> {
         this.csvFilePath = csvFilePath;
-        this.csvFileName = csvFilePath.split(/[/\\]/).pop();
+        this.csvFileName = csvFilePath.split(/[/\\]/).pop() || '';
 
         return new Promise((resolve, reject) => {
-            const recipients = [];
+            const recipients: Recipient[] = [];
 
             const parser = parse({
                 bom: true,
@@ -141,7 +200,7 @@ class EnhancedCSVMailer {
                 relax_quotes: true
             });
 
-            parser.on('data', (row) => {
+            parser.on('data', (row: Record<string, string>) => {
                 // Get email from 'E-mail 1 - Value' column
                 const email = row['E-mail 1 - Value'];
                 
@@ -176,7 +235,7 @@ class EnhancedCSVMailer {
     }
 
     // Update CSV file with sent status
-    async updateCSV() {
+    async updateCSV(): Promise<void> {
         return new Promise((resolve, reject) => {
             // Prepare data with sent column
             const records = this.recipients.map(recipient => {
@@ -207,7 +266,7 @@ class EnhancedCSVMailer {
     }
 
     // Load HTML template
-    async loadTemplate() {
+    async loadTemplate(): Promise<void> {
         try {
             this.emailTemplate = fs.readFileSync(EMAIL_SETTINGS.templatePath, 'utf8');
             console.log('Email template loaded');
@@ -218,11 +277,11 @@ class EnhancedCSVMailer {
     }
 
     // Send email to a single recipient
-    async sendEmail(recipient) {
+    async sendEmail(recipient: Recipient): Promise<SendEmailResult> {
         // Check if account has hit its max limit (critical check) - BEFORE sending
         if (!this.currentAccount || 
             this.currentAccount.sentCount >= this.currentAccount.maxSendLimit) {
-            console.log(`\n⚠️  Account limit reached (${this.currentAccount?.sentCount}/${this.currentAccount?.maxSendLimit}). Switching account...`);
+            console.log(`\nAccount limit reached (${this.currentAccount?.sentCount}/${this.currentAccount?.maxSendLimit}). Switching account...`);
             const newAccount = await this.getNextAccount(true);
             if (!newAccount) {
                 return { success: false, error: 'No available accounts', needsSwitch: false };
@@ -237,11 +296,17 @@ class EnhancedCSVMailer {
                 html: this.emailTemplate
             };
 
-            const info = await this.currentTransporter.sendMail(mailOptions);
+            const info: SentMessageInfo = await this.currentTransporter!.sendMail(mailOptions);
             
             // Update local account sent count FIRST (before database)
             this.currentAccount.sentCount++;
             this.sessionEmailCount++;
+            
+            // Validate csvFileName before logging
+            if (!this.csvFileName) {
+                console.error('\nFatal error: CSV filename not set');
+                process.exit(1);
+            }
             
             // Then log to database
             await incrementSentCount(this.currentAccount.email);
@@ -251,7 +316,7 @@ class EnhancedCSVMailer {
                 EMAIL_SETTINGS.subject,
                 'success',
                 info.messageId,
-                null,
+                '',
                 this.csvFileName
             );
 
@@ -259,7 +324,7 @@ class EnhancedCSVMailer {
             
             return { success: true, messageId: info.messageId };
             
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Failed to send to ${recipient.email}: ${error.message}`);
             
             // Check if it's a rate limit error
@@ -276,13 +341,19 @@ class EnhancedCSVMailer {
                 }
             }
             
+            // Validate csvFileName before logging
+            if (!this.csvFileName) {
+                console.error('\nFatal error: CSV filename not set');
+                process.exit(1);
+            }
+            
             // Log failure
             await logSentEmail(
                 this.currentAccount.email,
                 recipient.email,
                 EMAIL_SETTINGS.subject,
                 'failed',
-                null,
+                '',
                 error.message,
                 this.csvFileName
             );
@@ -292,7 +363,7 @@ class EnhancedCSVMailer {
     }
 
     // Send emails to all recipients
-    async sendBulkEmails() {
+    async sendBulkEmails(): Promise<BulkEmailResults> {
         // Filter only unsent emails
         const unsentRecipients = this.recipients.filter(r => !r.sent);
         
@@ -303,7 +374,7 @@ class EnhancedCSVMailer {
 
         console.log(`\nStarting to send ${unsentRecipients.length} emails in batches of ${EMAIL_SETTINGS.batchSize}...`);
         
-        const results = {
+        const results: BulkEmailResults = {
             sent: 0,
             failed: 0,
             skipped: this.recipients.filter(r => r.sent).length,
@@ -343,13 +414,13 @@ class EnhancedCSVMailer {
                     return { 
                         success: false, 
                         recipient, 
-                        error: result.error 
+                        error: result.error || 'Unknown error'
                     };
                 }
             });
             
             // Wait for all emails in batch to complete
-            const batchResults = await Promise.all(batchPromises);
+            const batchResults: BatchResult[] = await Promise.all(batchPromises);
             
             // Process results
             batchResults.forEach(result => {
@@ -359,7 +430,7 @@ class EnhancedCSVMailer {
                     results.failed++;
                     results.errors.push({
                         recipient: result.recipient.email,
-                        error: result.error
+                        error: result.error || 'Unknown error'
                     });
                 }
             });
@@ -371,12 +442,12 @@ class EnhancedCSVMailer {
             // Check if we should rotate account for fair distribution (only between batches)
             if (batchIndex < totalBatches - 1) {
                 if (this.sessionEmailCount >= this.rotationThreshold) {
-                    console.log(`\n🔄 Rotation threshold (${this.rotationThreshold}) reached. Switching to next account for fair distribution...`);
+                    console.log(`\nRotation threshold (${this.rotationThreshold}) reached. Switching to next account for fair distribution...`);
                     const newAccount = await this.getNextAccount(true);
                     if (!newAccount) {
-                        console.log('⚠️  No other accounts available, continuing with current account');
+                        console.log('WARNING: No other accounts available, continuing with current account');
                     } else {
-                        console.log('✓ Account rotated successfully');
+                        console.log('Account rotated successfully');
                     }
                 }
                 
@@ -393,7 +464,7 @@ class EnhancedCSVMailer {
     }
 
     // Display summary
-    displaySummary() {
+    displaySummary(): void {
         console.log('\n' + '='.repeat(60));
         console.log('EMAIL SUMMARY');
         console.log('='.repeat(60));
@@ -406,7 +477,7 @@ class EnhancedCSVMailer {
     }
 
     // Get user confirmation
-    async getUserConfirmation() {
+    async getUserConfirmation(): Promise<boolean> {
         const rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout
@@ -421,7 +492,7 @@ class EnhancedCSVMailer {
     }
 
     // Main execution
-    async run(csvFilePath) {
+    async run(csvFilePath: string): Promise<void> {
         try {
             console.log('\nEnhanced CSV Mailer Starting...\n');
 
@@ -433,8 +504,10 @@ class EnhancedCSVMailer {
             console.log('\nEmail Accounts Status:');
             console.log('='.repeat(60));
             stats.forEach((stat, i) => {
-                console.log(`${i + 1}. ${stat.email}`);
-                console.log(`   Status: ${stat.status} | Sent: ${stat.sentCount}/${stat.maxSendLimit} | Remaining: ${stat.remaining}`);
+                if (stat) {
+                    console.log(`${i + 1}. ${stat.email}`);
+                    console.log(`   Status: ${stat.status} | Sent: ${stat.sentCount}/${stat.maxSendLimit} | Remaining: ${stat.remaining}`);
+                }
             });
             console.log('='.repeat(60));
 
@@ -497,17 +570,22 @@ class EnhancedCSVMailer {
 }
 
 // Command line interface
-async function main() {
+async function main(): Promise<void> {
     const args = process.argv.slice(2);
     
     if (args.length === 0) {
         console.log('\nError: No CSV file specified');
-        console.log('\nUsage: bun mailer.js <csv-file-path>');
-        console.log('Example: bun mailer.js ./test.csv\n');
+        console.log('\nUsage: bun mailer.ts <csv-file-path>');
+        console.log('Example: bun mailer.ts ./test.csv\n');
         process.exit(1);
     }
 
     const csvFilePath = args[0];
+    
+    if (!csvFilePath) {
+        console.log('\nError: CSV file path is required\n');
+        process.exit(1);
+    }
     
     if (!fs.existsSync(csvFilePath)) {
         console.log(`\nError: CSV file not found: ${csvFilePath}\n`);

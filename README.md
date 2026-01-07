@@ -53,7 +53,7 @@ Advanced bulk email sender with MongoDB tracking, automatic account rotation, ra
 Run the account manager to add your email accounts:
 
 ```bash
-bun manage-accounts.js
+bun manage-accounts.ts
 ```
 
 Choose option `1` to add an account, then enter:
@@ -75,7 +75,7 @@ Enter max send limit (default 500): 500
 To check your accounts:
 
 ```bash
-bun manage-accounts.js
+bun manage-accounts.ts
 ```
 
 Choose option `2` to view all accounts and their status.
@@ -96,7 +96,7 @@ The script will automatically add a `sent` column to track progress. Process one
 
 ### Step 4: Prepare HTML Template
 
-Make sure you have an HTML email template at `./interact_mail_csi.html` (or update the path in `mailer.js`).
+Make sure you have an HTML email template at `./interact_mail_csi.html` (or update the path in `mailer.ts`).
 
 ## Usage
 
@@ -105,14 +105,14 @@ Make sure you have an HTML email template at `./interact_mail_csi.html` (or upda
 Send emails from a CSV file:
 
 ```bash
-bun mailer.js <csv-file-path>
+bun mailer.ts <csv-file-path>
 ```
 
 Example:
 ```bash
-bun mailer.js ./test.csv
-bun mailer.js ./ccs-2025-1.csv
-bun mailer.js ./students-batch-2.csv
+bun mailer.ts ./test.csv
+bun mailer.ts ./ccs-2025-1.csv
+bun mailer.ts ./students-batch-2.csv
 ```
 
 ### What Happens:
@@ -134,14 +134,14 @@ bun mailer.js ./students-batch-2.csv
 If the script stops (rate limit, network issue, etc.), just run it again:
 
 ```bash
-bun mailer.js ./your-file.csv
+bun mailer.ts ./your-file.csv
 ```
 
 It will skip emails already marked as `sent` in the CSV.
 
 ## Configuration
 
-Edit `mailer.js` to customize:
+Edit `mailer.ts` to customize:
 
 ```javascript
 const EMAIL_SETTINGS = {
@@ -185,7 +185,7 @@ const EMAIL_SETTINGS = {
 ### View Account Statistics
 
 ```bash
-bun manage-accounts.js
+bun manage-accounts.ts
 ```
 Choose option 2.
 
@@ -194,7 +194,7 @@ Choose option 2.
 If you want to reset all accounts (clears sent counts and rate limits):
 
 ```bash
-bun manage-accounts.js
+bun manage-accounts.ts
 ```
 Choose option 3.
 
@@ -207,7 +207,7 @@ Choose option 3.
 **Solution**: The script automatically detects this and switches to another account. If all accounts are rate-limited:
 1. Wait a few hours
 2. Add more email accounts
-3. Run the reset command (option 3 in manage-accounts.js)
+3. Run the reset command (option 3 in manage-accounts.ts)
 
 ### MongoDB Connection Error
 
@@ -239,13 +239,13 @@ mongod
 
 ```
 node-mailer/
-├── mailer.js              # Main email sending script
-├── database.js            # MongoDB schemas and helpers
-├── manage-accounts.js     # Account management utility
+├── mailer.ts              # Main email sending script
+├── database.ts            # MongoDB schemas and helpers
+├── manage-accounts.ts     # Account management utility
 ├── interact_mail_csi.html # Email template
-├── test.csv              # Sample CSV file
-├── ccs-2025-1.csv        # Your CSV files
-└── README.md             # This file
+├── test.csv               # Sample CSV file
+├── ccs-2025-1.csv         # Your CSV files
+└── README.md              # This file
 ```
 
 ## Best Practices
@@ -274,23 +274,23 @@ Or create a `.env` file (not included in this setup but can be added).
 mongod
 
 # 2. Add email accounts (in a new terminal)
-bun manage-accounts.js
+bun manage-accounts.ts
 # Choose option 1, add 3-5 accounts
 
 # 3. Check accounts
-bun manage-accounts.js
+bun manage-accounts.ts
 # Choose option 2
 
 # 4. Send emails from first CSV
-bun mailer.js ./ccs-2025-1.csv
+bun mailer.ts ./ccs-2025-1.csv
 # Review → Type 'yes' → Wait for completion
 
 # 5. Send emails from second CSV
-bun mailer.js ./ccs-3.csv
+bun mailer.ts ./ccs-3.csv
 # Review → Type 'yes' → Wait for completion
 
 # 6. If interrupted, just run again
-bun mailer.js ./ccs-3.csv
+bun mailer.ts ./ccs-3.csv
 # It will skip already-sent emails
 ```
 

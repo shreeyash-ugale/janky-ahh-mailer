@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
-// MongoDB connection
-export async function connectDB() {
+export async function connectDB(): Promise<void> {
     try {
         await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email_manager');
         console.log('MongoDB connected successfully');
@@ -11,103 +10,82 @@ export async function connectDB() {
     }
 }
 
-// Email Account Schema
-const emailAccountSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true
-    },
-    appPassword: {
-        type: String,
-        required: true
-    },
-    sentCount: {
-        type: Number,
-        default: 0
-    },
-    maxSendLimit: {
-        type: Number,
-        default: 500
-    },
-    isRateLimited: {
-        type: Boolean,
-        default: false
-    },
+type AccountStatus = 'active' | 'rate-limited' | 'disabled';
+
+export interface IEmailAccount {
+    email: string;
+    appPassword: string;
+    sentCount: number;
+    maxSendLimit: number;
+    isRateLimited: boolean;
+    rateLimitedAt?: Date;
+    lastUsedAt?: Date;
+    status: AccountStatus;
+    createdAt: Date;
+}
+
+export interface ISentEmail {
+    fromAccount: string;
+    toEmail: string;
+    subject?: string;
+    sentAt: Date;
+    status: 'success' | 'failed';
+    errorMessage?: string;
+    messageId?: string;
+    csvFile?: string;
+}
+
+const emailAccountSchema = new mongoose.Schema<IEmailAccount>({
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    appPassword: { type: String, required: true },
+    sentCount: { type: Number, default: 0 },
+    maxSendLimit: { type: Number, default: 500 },
+    isRateLimited: { type: Boolean, default: false },
     rateLimitedAt: Date,
     lastUsedAt: Date,
-    status: {
-        type: String,
-        enum: ['active', 'rate-limited', 'disabled'],
-        default: 'active'
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+    status: { type: String, enum: ['active', 'rate-limited', 'disabled'], default: 'active' },
+    createdAt: { type: Date, default: Date.now }
 });
 
-// Sent Email Log Schema
-const sentEmailSchema = new mongoose.Schema({
-    fromAccount: {
-        type: String,
-        required: true,
-        lowercase: true
-    },
-    toEmail: {
-        type: String,
-        required: true,
-        lowercase: true
-    },
+const sentEmailSchema = new mongoose.Schema<ISentEmail>({
+    fromAccount: { type: String, required: true, lowercase: true },
+    toEmail: { type: String, required: true, lowercase: true },
     subject: String,
-    sentAt: {
-        type: Date,
-        default: Date.now
-    },
-    status: {
-        type: String,
-        enum: ['success', 'failed'],
-        default: 'success'
-    },
+    sentAt: { type: Date, default: Date.now },
+    status: { type: String, enum: ['success', 'failed'], default: 'success' },
     errorMessage: String,
     messageId: String,
     csvFile: String
 });
 
-// Add indexes (email already has unique index from schema)
 emailAccountSchema.index({ status: 1, sentCount: 1 });
 sentEmailSchema.index({ fromAccount: 1, sentAt: -1 });
 sentEmailSchema.index({ toEmail: 1 });
 
-export const EmailAccount = mongoose.model('EmailAccount', emailAccountSchema);
-export const SentEmail = mongoose.model('SentEmail', sentEmailSchema);
+export const EmailAccount = mongoose.model<IEmailAccount>('EmailAccount', emailAccountSchema);
+export const SentEmail = mongoose.model<ISentEmail>('SentEmail', sentEmailSchema);
 
-// Helper functions
 export async function getAvailableAccount() {
-    // Find an account that's active, not rate limited, and under the limit
     const account = await EmailAccount.findOne({
         status: 'active',
         isRateLimited: false,
         $expr: { $lt: ['$sentCount', '$maxSendLimit'] }
-    }).sort({ sentCount: 1 }); // Get account with least emails sent
+    }).sort({ sentCount: 1 });
 
     return account;
 }
 
 export async function getAllAvailableAccounts() {
-    // Get all accounts that are active, not rate limited, and under the limit
     const accounts = await EmailAccount.find({
         status: 'active',
         isRateLimited: false,
         $expr: { $lt: ['$sentCount', '$maxSendLimit'] }
-    }).sort({ sentCount: 1 }); // Sort by least emails sent
+    }).sort({ sentCount: 1 });
 
     return accounts;
 }
 
-export async function incrementSentCount(email) {
+export async function incrementSentCount(email: string): Promise<void> {
     await EmailAccount.findOneAndUpdate(
         { email: email.toLowerCase() },
         { 
@@ -117,7 +95,7 @@ export async function incrementSentCount(email) {
     );
 }
 
-export async function markAccountRateLimited(email) {
+export async function markAccountRateLimited(email: string): Promise<void> {
     await EmailAccount.findOneAndUpdate(
         { email: email.toLowerCase() },
         { 
@@ -129,27 +107,34 @@ export async function markAccountRateLimited(email) {
     console.log(`Account ${email} marked as rate-limited`);
 }
 
-export async function logSentEmail(fromAccount, toEmail, subject, status, messageId = null, errorMessage = null, csvFile = null) {
+export async function logSentEmail(
+    fromAccount: string,
+    toEmail: string,
+    subject: string,
+    status: 'success' | 'failed',
+    messageId = '',
+    errorMessage = '',
+    csvFile = ''
+): Promise<void> {
     await SentEmail.create({
         fromAccount: fromAccount.toLowerCase(),
         toEmail: toEmail.toLowerCase(),
         subject,
         status,
-        messageId,
-        errorMessage,
-        csvFile
+        messageId: messageId || '',
+        errorMessage: errorMessage || '',
+        csvFile: csvFile || ''
     });
 }
 
-export async function addOrUpdateAccount(email, appPassword, maxSendLimit = 500) {
-    const updateData = { 
+export async function addOrUpdateAccount(email: string, appPassword: string, maxSendLimit = 500) {
+    const updateData: Partial<IEmailAccount> & { email: string; maxSendLimit: number; status: AccountStatus; isRateLimited: boolean } = { 
         email: email.toLowerCase(),
         maxSendLimit,
         status: 'active',
         isRateLimited: false
     };
     
-    // Only update password if it's provided and not empty
     if (appPassword && appPassword.trim() !== '') {
         updateData.appPassword = appPassword;
     }
@@ -162,7 +147,7 @@ export async function addOrUpdateAccount(email, appPassword, maxSendLimit = 500)
     return account;
 }
 
-export async function updateAccountMaxLimit(email, maxSendLimit) {
+export async function updateAccountMaxLimit(email: string, maxSendLimit: number) {
     const account = await EmailAccount.findOneAndUpdate(
         { email: email.toLowerCase() },
         { 
@@ -175,7 +160,7 @@ export async function updateAccountMaxLimit(email, maxSendLimit) {
     return account;
 }
 
-export async function getAccountStats(email) {
+export async function getAccountStats(email: string) {
     const account = await EmailAccount.findOne({ email: email.toLowerCase() });
     if (!account) return null;
 
@@ -204,17 +189,17 @@ export async function getAllAccountsStats() {
     return stats;
 }
 
-export async function getAccountCredentials(email) {
+export async function getAccountCredentials(email: string) {
     const account = await EmailAccount.findOne({ email: email.toLowerCase() });
     if (!account) return null;
     
     return {
         email: account.email,
-        appPassword: account.appPassword
+        appPassword: (account as any).appPassword
     };
 }
 
-export async function resetAccountLimits() {
+export async function resetAccountLimits(): Promise<void> {
     await EmailAccount.updateMany(
         {},
         { 
@@ -226,14 +211,14 @@ export async function resetAccountLimits() {
     console.log('All account limits reset');
 }
 
-export async function wasEmailSent(toEmail, csvFile = null) {
-    const query = { 
+export async function wasEmailSent(toEmail: string, csvFile: string | null = null): Promise<boolean> {
+    const query: Record<string, unknown> = { 
         toEmail: toEmail.toLowerCase(),
         status: 'success'
     };
     
     if (csvFile) {
-        query.csvFile = csvFile;
+        (query as any).csvFile = csvFile;
     }
     
     const sentEmail = await SentEmail.findOne(query);
